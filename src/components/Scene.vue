@@ -15,11 +15,12 @@
     <primitive :object="backdropMat" />
   </TresMesh>
 
-  <!-- ─── FLOOR ────────────────────────────────────────── -->
-  <!-- Опущен ниже и уходит глубже чтобы не резать нижний край -->
-  <TresMesh :position="[0, -3.5, -4]" :rotation="[-1.5708, 0, 0]">
+  <!-- ─── FLOOR ─────────────────────────────────────────
+       Canvas-градиент: у шва с бэкдропом = розовый бэкдропа,
+       у камеры = тёмный → нет видимой границы              -->
+  <TresMesh v-if="floorMat" :position="[0, -3.5, -4]" :rotation="[-1.5708, 0, 0]">
     <TresPlaneGeometry :args="[30, 20]" />
-    <TresMeshStandardMaterial color="#0a001a" :roughness="0.1" :metalness="0.85" />
+    <primitive :object="floorMat" />
   </TresMesh>
 
   <!-- ─── GLOW LAYER — за граффити, отдельная глубина ─── -->
@@ -52,6 +53,7 @@ const glowRef     = ref(null)
 const sprayMat    = shallowRef(null)
 const glowMat     = shallowRef(null)
 const backdropMat = shallowRef(makeBackdrop())
+const floorMat    = shallowRef(null)
 const hearts      = shallowRef(null)
 
 const graffitiW    = ref(8)
@@ -227,6 +229,27 @@ function processGraffiti() {
   })
 }
 
+function makeFloorTexture() {
+  const cv  = document.createElement('canvas')
+  cv.width  = 2
+  cv.height = 256
+  const ctx = cv.getContext('2d')
+  // canvas y=256 (bottom) → UV.y=0 → near camera
+  // canvas y=0   (top)    → UV.y=1 → seam with backdrop wall
+  const g = ctx.createLinearGradient(0, cv.height, 0, 0)
+  g.addColorStop(0,    '#090012')
+  g.addColorStop(0.45, '#55005a')
+  g.addColorStop(0.60, '#bb0077')
+  g.addColorStop(1,    '#440066')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, cv.width, cv.height)
+  return new THREE.MeshBasicMaterial({
+    map:        new THREE.CanvasTexture(cv),
+    side:       THREE.FrontSide,
+    depthWrite: false,
+  })
+}
+
 function makeHearts() {
   const cv  = document.createElement('canvas')
   cv.width  = cv.height = 64
@@ -261,6 +284,7 @@ function makeHearts() {
 // ─── init ───────────────────────────────────────────────
 onMounted(async () => {
   glowMat.value  = makeGlowMat()
+  floorMat.value = makeFloorTexture()
   hearts.value   = makeHearts()
 
   const tex = await processGraffiti()
