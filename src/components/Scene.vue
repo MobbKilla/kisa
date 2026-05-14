@@ -67,7 +67,8 @@ const sm = { x: 0, y: 0 }
 // raw target
 const tg = { x: 0, y: 0, vx: 0, vy: 0 }
 const device = { x: 0, y: 0 }
-const LERP = 0.06
+const dSm    = { x: 0, y: 0 }   // smoothed device (gyro noise reduction)
+const LERP   = 0.06
 
 // tilt strengths per layer
 const TILT = {
@@ -335,17 +336,20 @@ function onMouseLeave() {
 }
 function onDeviceOrientation(e) {
   if (e.beta === null) return
-  device.x = (e.gamma       / 45) * 0.9
-  device.y = ((e.beta - 45) / 45) * 0.9
+  // natural hold ~60°; ±20° range → clamped -1..1
+  device.x = Math.max(-1, Math.min(1,  (e.gamma        ?? 0) / 20))
+  device.y = Math.max(-1, Math.min(1, -((e.beta ?? 60) - 60) / 20))
 }
 
 // ─── render loop ────────────────────────────────────────
 const { onRender } = useLoop()
 
 onRender(({ elapsed }) => {
-  // lerp к target (для gyro lerp работает; для мыши GSAP берёт на себя возврат)
-  sm.x += (tg.x + device.x - sm.x) * LERP
-  sm.y += (tg.y + device.y - sm.y) * LERP
+  // smooth device separately to kill gyro noise, then blend with mouse target
+  dSm.x += (device.x - dSm.x) * 0.08
+  dSm.y += (device.y - dSm.y) * 0.08
+  sm.x  += (tg.x + dSm.x - sm.x) * LERP
+  sm.y  += (tg.y + dSm.y - sm.y) * LERP
 
   const tx = sm.x
   const ty = sm.y
