@@ -3,31 +3,33 @@
 
   <!-- ─── LIGHTS ──────────────────────────────────────── -->
   <TresAmbientLight color="#7700cc" :intensity="2.5" />
-  <TresPointLight color="#ff00cc" :position="[0, -1.5, -3]" :intensity="12" :distance="14" />
+  <TresPointLight color="#ff00cc" :position="[0, -3, -3]"  :intensity="15" :distance="18" />
   <TresPointLight color="#4400aa" :position="[0, 6, 0]"    :intensity="5"  :distance="20" />
   <TresPointLight color="#ff3399" :position="[-5, 2, 2]"   :intensity="4"  :distance="18" />
   <TresPointLight color="#ffffff" :position="[0, 1, 1]"    :intensity="3"  :distance="8"  />
 
   <!-- ─── BACKDROP ─────────────────────────────────────── -->
-  <TresMesh :position="[0, 1, -5]">
-    <TresPlaneGeometry :args="[20, 12]" />
+  <!-- Большой, центр на y=0, покрывает y=-12..+12 — нет зазоров -->
+  <TresMesh :position="[0, 0, -5]">
+    <TresPlaneGeometry :args="[30, 24]" />
     <primitive :object="backdropMat" />
   </TresMesh>
 
   <!-- ─── FLOOR ────────────────────────────────────────── -->
-  <TresMesh :position="[0, -2.5, -1]" :rotation="[-1.5708, 0, 0]">
-    <TresPlaneGeometry :args="[20, 14]" />
+  <!-- Опущен ниже и уходит глубже чтобы не резать нижний край -->
+  <TresMesh :position="[0, -3.5, -4]" :rotation="[-1.5708, 0, 0]">
+    <TresPlaneGeometry :args="[30, 20]" />
     <TresMeshStandardMaterial color="#0a001a" :roughness="0.1" :metalness="0.85" />
   </TresMesh>
 
   <!-- ─── GLOW LAYER — за граффити, отдельная глубина ─── -->
-  <TresMesh v-if="glowMat" ref="glowRef" :position="[0, 0.5, -5.05]">
+  <TresMesh v-if="glowMat" ref="glowRef" :position="[0, 1.2, -5.05]">
     <TresPlaneGeometry :args="glowArgs" />
     <primitive :object="glowMat" />
   </TresMesh>
 
   <!-- ─── GRAFFITI — главный слой ──────────────────────── -->
-  <TresMesh v-if="sprayMat" ref="graffitiRef" :position="[0, 0.5, -4.9]">
+  <TresMesh v-if="sprayMat" ref="graffitiRef" :position="[0, 1.2, -4.9]">
     <TresPlaneGeometry :args="graffitiArgs" />
     <primitive :object="sprayMat" />
   </TresMesh>
@@ -336,7 +338,7 @@ onRender(({ elapsed }) => {
     glowRef.value.rotation.y    = tx * TILT.glow.rotY
     glowRef.value.rotation.x    = -ty * TILT.glow.rotX
     glowRef.value.position.x    = tx * TILT.glow.tx
-    glowRef.value.position.y    = ty * TILT.glow.ty + 0.5
+    glowRef.value.position.y    = ty * TILT.glow.ty + 1.2
   }
 
   // граффити — основной 3D наклон
@@ -344,7 +346,7 @@ onRender(({ elapsed }) => {
     graffitiRef.value.rotation.y = tx * TILT.graf.rotY
     graffitiRef.value.rotation.x = -ty * TILT.graf.rotX
     graffitiRef.value.position.x = tx * TILT.graf.tx
-    graffitiRef.value.position.y = ty * TILT.graf.ty + 0.5
+    graffitiRef.value.position.y = ty * TILT.graf.ty + 1.2
   }
 
   // шейдер время
