@@ -8,5 +8,5 @@ export default defineConfig({
       ...templateCompilerOptions,
     }),
   ],
-  base: '/kisa-card/',
+  base: '/kisa/',
 })
