@@ -35,6 +35,12 @@
     <primitive :object="sprayMat" />
   </TresMesh>
 
+  <!-- ─── SHEEN — holographic glass over graffiti ────────── -->
+  <TresMesh v-if="sheenMat" ref="sheenRef" :position="[0, 1.2, -4.75]">
+    <TresPlaneGeometry :args="graffitiArgs" />
+    <primitive :object="sheenMat" />
+  </TresMesh>
+
   <!-- ─── HEARTS — ближе к камере, максимальный параллакс  -->
   <primitive v-if="hearts" :object="hearts" />
 </template>
@@ -49,9 +55,11 @@ import * as THREE from 'three'
 const cameraRef   = ref(null)
 const graffitiRef = ref(null)
 const glowRef     = ref(null)
+const sheenRef    = ref(null)
 
 const sprayMat    = shallowRef(null)
 const glowMat     = shallowRef(null)
+const sheenMat    = shallowRef(null)
 const backdropMat = shallowRef(makeBackdrop())
 const floorMat    = shallowRef(null)
 const hearts      = shallowRef(null)
@@ -72,10 +80,11 @@ const LERP   = 0.06
 
 // tilt strengths per layer
 const TILT = {
-  cam:  { rotY: 0.06,  rotX: 0.04,  tx: 0.18,  ty: 0.12 },
-  glow: { rotY: 0.08,  rotX: 0.055, tx: -0.08, ty: -0.06 },
-  graf: { rotY: 0.13,  rotX: 0.09,  tx: -0.14, ty: -0.10 },
-  hrt:  {                            tx: -0.28, ty: -0.16 },
+  cam:   { rotY: 0.06,  rotX: 0.04,  tx: 0.18,  ty: 0.12 },
+  glow:  { rotY: 0.08,  rotX: 0.055, tx: -0.08, ty: -0.06 },
+  graf:  { rotY: 0.13,  rotX: 0.09,  tx: -0.14, ty: -0.10 },
+  sheen: { rotY: 0.16,  rotX: 0.11,  tx: -0.18, ty: -0.13 },
+  hrt:   {                            tx: -0.28, ty: -0.16 },
 }
 
 // ─── backdrop shader ────────────────────────────────────
@@ -230,6 +239,52 @@ function processGraffiti() {
   })
 }
 
+const SHEEN_VERT = /* glsl */`
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+const SHEEN_FRAG = /* glsl */`
+  uniform float uTime;
+  varying vec2  vUv;
+
+  void main() {
+    // diagonal sweep — passes every ~5s
+    float phase = mod(uTime * 0.18, 1.3) - 0.15;
+    float diag  = vUv.x * 0.55 + vUv.y * 0.45;
+    float w     = 0.07;
+    float sweep = smoothstep(phase - w, phase, diag)
+                * smoothstep(phase + w * 2.0, phase + w, diag);
+
+    // iridescent tint along the diagonal
+    float hue  = diag * 1.2 + uTime * 0.04;
+    vec3 iri   = 0.55 + 0.45 * cos(6.28318 * (vec3(0.0, 0.33, 0.67) + hue));
+
+    // cinematic edge frame
+    vec2 uv2   = abs(vUv * 2.0 - 1.0);
+    float edge = pow(max(uv2.x, uv2.y), 6.0) * 0.5;
+
+    vec3  col   = iri * sweep + vec3(0.85, 0.4, 1.0) * edge;
+    float alpha = sweep * 0.65 + edge * 0.45;
+
+    gl_FragColor = vec4(col, alpha);
+  }
+`
+
+function makeSheenMat() {
+  return new THREE.ShaderMaterial({
+    uniforms:       { uTime: { value: 0 } },
+    vertexShader:   SHEEN_VERT,
+    fragmentShader: SHEEN_FRAG,
+    transparent:    true,
+    depthWrite:     false,
+    blending:       THREE.AdditiveBlending,
+    side:           THREE.FrontSide,
+  })
+}
+
 function makeFloorTexture() {
   const cv  = document.createElement('canvas')
   cv.width  = 2
@@ -285,6 +340,7 @@ function makeHearts() {
 // ─── init ───────────────────────────────────────────────
 onMounted(async () => {
   glowMat.value  = makeGlowMat()
+  sheenMat.value = makeSheenMat()
   floorMat.value = makeFloorTexture()
   hearts.value   = makeHearts()
 
@@ -377,10 +433,18 @@ onRender(({ elapsed }) => {
     graffitiRef.value.position.y = ty * TILT.graf.ty + 1.2
   }
 
-  // шейдер время
-  if (sprayMat.value) {
-    sprayMat.value.uniforms.uTime.value = elapsed ?? 0
+  // sheen — ближайший слой, максимальный наклон
+  if (sheenRef.value) {
+    sheenRef.value.rotation.y = tx * TILT.sheen.rotY
+    sheenRef.value.rotation.x = -ty * TILT.sheen.rotX
+    sheenRef.value.position.x = tx * TILT.sheen.tx
+    sheenRef.value.position.y = ty * TILT.sheen.ty + 1.2
   }
+
+  // шейдер время
+  const t = elapsed ?? 0
+  if (sprayMat.value) sprayMat.value.uniforms.uTime.value = t
+  if (sheenMat.value) sheenMat.value.uniforms.uTime.value = t
 
   // сердечки — ближний слой, максимальный параллакс
   if (hearts.value) {
